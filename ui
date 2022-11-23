@@ -1,0 +1,167 @@
+
+library(shiny)
+library(shinythemes)
+library(DT)
+library(ggplot2)
+library(car)
+library(nortest)
+library(tseries)
+library(RcmdrMisc)
+library(lmtest)
+library(stargazer)
+library(effects)
+library(markdown)
+library(htmltools)
+
+
+# Define UI for application that draws a histogram
+ui <- shinyUI(fluidPage(theme = shinytheme("cerulean"),
+                    
+                        
+                        
+                        titlePanel("Effects of College Dormitory Quality on Rejection Rates"),
+                        navbarPage("Analysis Process",
+                                   tabPanel(icon("home"),
+                                            
+                                            fluidRow(
+                                                     column(tags$img(src="washu-symbol.png",width="200px",height="100px"),width=2),
+                                                     column(offset = 1,
+                                                       
+                                                       br(),
+                                                       p("Here we have collected a dataset of 68 undergraduate accredited 4-year Universities in the United States which offer on-campus housing. 
+                                                         Throughout this analysis, we'll examine what factors influence student's choice to reject an acceptance. "
+                                                         ,style="text-align:justify;color:black;font-size:24px;background-color:lavender;padding:15px;border-radius:10px"),
+                                                       uiOutput("linktodata"),
+                                                       br(),
+                                                      
+                                                       width=8),
+                                                     ),
+                                            
+                                            hr(),
+                                            tags$style(".fa-database {color:#E87722}"),
+                                            h3(p(em("Dataset "),icon("database",lib = "font-awesome"),style="color:black;text-align:center")),
+                                            fluidRow(column(DT::dataTableOutput("RawData"),
+                                                            width = 12)),
+                                            
+                                            hr()
+                                   ),
+                                   tabPanel("Is Rejection Rate Random?",
+                                            fluidRow(
+                                              column(12,
+                                                p('Let\'s run a battery of normality tests on our response variable (rejection rate), so we can determine
+                                                  if there even is a systematic relationship to find between it and other variables in our dataset.
+                                                  Were we to find that our response variable could be modeled randomly, it would be unlikely that a fitted analytic relationship 
+                                                  would have any predictive value (although we could still find correlation and perhaps use that to predict other variables).
+                                                  The linear model which would best fit a normally distributed dataset would just look like a flat (or almost flat) line.'
+                                                    ,style="text-align:justify;color:black;font-size:24px;background-color:lavender;padding:15px;border-radius:10px" ),
+                                                br(),
+                                                withMathJax(),
+                                                p('$$H_0:~\\texttt{Rejection Rate} ~ \\sim ~ N( ~\\mu ~,~ \\sigma~ )$$,$$H_1: ~\\texttt{Rejection Rate} ~ \\nsim ~ N(~\\mu~,~ \\sigma~)$$',style="text-align:justify;color:black;background-color:papayawhip;padding:15px;border-radius:10px" ),
+                                                plotOutput("RejectionRateHist"),
+                                                br(),
+                                                p('It doesn\'t seem to match the histogram. Yet, if you\'re not convinced, here\'s a QQPlot, which maps the observed quantiles within a dataset to the theoretical normal quantiles. 
+                                                  It\'s another graphical normality test, where we evaluate the closeness of the dots to the ideal line. If the dots closely follow the line, we suspect that the data may be generated randomly,
+                                                  distributed according to the normal distribution.',style="text-align:justify;color:black;font-size:24px;background-color:lavender;padding:15px;border-radius:10px" ),
+                                                plotOutput("qqplot1"),
+                                                p('For completion, we should always use one or two analytical tests. Here are some standard ones, namely the Shapiro-Wilk and Kolmogorov-Smirnov normality tests.' 
+                                                  ,em('(The reason for choosing these is because they are on opposite ends of the statistical power spectrum; the Shapiro-Wilk is the most decisive when dealing with
+                                                  small sample sizes such as these, and the Kolmogorov-Smirnov is the most conservative, meaning it\'s most likely to say "the results are inconclusive and these data may be normal".)'),
+                                                  style="text-align:justify;color:black;font-size:24px;background-color:papayawhip;padding:15px;border-radius:10px"),
+                                                verbatimTextOutput("shapirotest"),
+                                                verbatimTextOutput("kstest"),
+                                                p('Those are some small p-values. All four of our tests conclude that these data are not normally distributed, and our histogram even suggests that our data may be multimodal',
+                                                  em('(i.e. we would need some gnarly, uncommon combinations of distributions to model this probabilistically)'), 
+                                                  'so we should start looking for some external data that can explain these observations with a regression model.',
+                                                  style="text-align:justify;color:black;font-size:24px;background-color:lavender;padding:15px;border-radius:10px")
+                                              
+                                              
+                          
+                                              
+                                              
+                                            )
+                                   )
+                                   ),
+                                   tabPanel("Dollars and Headcount",
+                                            fluidRow(
+                  
+                                              
+                                              #column(br(),plotOutput("reg1"),br(),width=12,style="border:1px solid black"),
+                                              column(4,checkboxGroupInput("fullylinear",p("Try to find the best predictors for Rejection Rate:",style="color:black; text-align:center"),
+                                                    choices=c("Student-To-Faculty-Ratio"='Student.to.faculty.ratio..EF2019D_RV.',"Percent Admitted"='Percent.admitted...total..DRVADM2019_RV.',
+                                                    "Total Price in-State"='Total.price.for.in.state.students.living.on.campus.2019.20..DRVIC2019.',
+                                                    "Total Price out-of-State"='Total.price.for.out.of.state.students.living.on.campus.2019.20..DRVIC2019.',
+                                                    "Net Price for Students Awarded Financial Aid"='Average.net.price.students.awarded.grant.or.scholarship.aid..2018.19..SFA1920_RV.',
+                                                    "Total Admissions"='Admissions.total..ADM2019_RV.'))),
+                                              column(8,
+                                                    p("Pay special attention to the how the adjusted R-Squared value changes when you add a new variable. If you add a very useful variable, 
+                                                      you will see it increase significantly. If it doesn't increase by much, the predictor you just added is either unrelated to the response variable
+                                                      or it\'s collinear with another predictor you've selected, meaning they carry the same regressive information.",
+                                                      style="text-align:justify;color:black;font-size:24px;background-color:papayawhip;padding:15px;border-radius:10px")
+                                              
+                                                     )
+                                              ),
+                                            
+                                            fluidRow(column(8,align= 'center',offset ='2',withMathJax(uiOutput('ms'))),
+                                                     style="text-align:justify;color:black;font-size:16px;background-color:lavender;padding:15px;border-radius:10px"
+                                                     ),
+                                            fluidRow(column(12,plotOutput("effectsplot"))),
+                                            fluidRow(
+                                              column(width = 12, plotOutput("multireg"))
+                                            ),
+                                            
+                                            ),
+                                   tabPanel("Correlations",
+                                            fluidRow(
+                                              column(12,p('Were you able to figure out which factors had the ', em('strongest'),' linear relationship to Rejection Rate, which 
+                                                         had ',em('no'),' observable linear relationship, and which two factors were collinear? Now we\'ll provide the answer by examining all the variables analytically 
+                                                         using the Pearson correlation coefficient.'),style = "text-align:justify;color:black;font-size:24px;background-color:lavender;padding:15px;border-radius:10px"),
+                                              br(),
+                                              withMathJax(),
+                                              column(12,p('$$r_{x,y}=~\\frac{\\sum_1^N(x_i - \\bar x)(y_i-\\bar y)}{\\sqrt{\\sum_1^N(x_i - \\bar x)^2}\\sqrt{\\sum_1^N(y_i - \\bar y)^2}}~$$'),
+                                                     style = "text-align:justify;color:black;font-size:24px;background-color:papayawhip;padding:15px;border-radius:10px"),
+                                              column(12,p('Although a more precise form exists, we use this form of the Pearson coefficient because we must be aware that the data we have are simply a sample;
+                                                          we don\'t know all there is to know about each one of the variables we are using. This form recognizes that we are dealing with a sample.'),
+                                                     style = "text-align:justify;color:black;font-size:24px;background-color:papayawhip;padding:15px;border-radius:10px"),
+                                              
+                                              
+                                              
+                                            ),
+                                            fluidRow(
+                                              column(8, verbatimTextOutput("pcor1")),column(4,p('almost no linear relationship.'),
+                                                                                            style = "text-align:justify;color:black;font-size:14px;background-color:lavender;padding:1px;border-radius:10px"),
+                                             br(),
+                                              column(8, verbatimTextOutput("pcor2")),column(4,p('some positive linear relationship'),
+                                                                                            style = "text-align:justify;color:black;font-size:14px;background-color:papayawhip;padding:1px;border-radius:10px"),
+                                             br(),
+                                             column(8, verbatimTextOutput("pcor3")),column(4,p('some positivelinear relationship'),
+                                                                                           style = "text-align:justify;color:black;font-size:14px;background-color:lavender;padding:1px;border-radius:10px"),
+                                             br(),
+                                             column(8, verbatimTextOutput("pcor4")),column(4,p('almost no linear relationship'),
+                                                                                           style = "text-align:justify;color:black;font-size:14px;background-color:papayawhip;padding:1px;border-radius:10px"),
+                                             br(),
+                                             column(8, verbatimTextOutput("pcor5")),column(4,p('almost no linear relationship'),
+                                                                                           style = "text-align:justify;color:black;font-size:14px;background-color:lavender;padding:1px;border-radius:10px"),
+                                             br(),
+                                             column(8, verbatimTextOutput("pcor6")),column(4,p('some positive linear relationship'),
+                                                                                           style = "text-align:justify;color:black;font-size:14px;background-color:papayawhip;padding:1px;border-radius:10px"),
+                                             br(),
+                                             column(8, verbatimTextOutput("pcor7")),column(4,p('some positive linear relationship'),
+                                                                                           style = "text-align:justify;color:black;font-size:14px;background-color:lavender;padding:1px;border-radius:10px"),
+                                             
+                                              
+                                            ),
+                                            fluidRow(
+                                              column(12,p('The Pearson coefficient is bounded between -1 and 1, and the magnitude of its linearity is commensurate with its numeric magnitude.
+                                                          Correlations close to 0 represent having almost no linear relationship between the two variables, while correlations close to 1 or -1 
+                                                          would be collinear or perpendicular, respectively. Also notice that the correlation for the in and out-of-state tuition variables are exactly the same.
+                                                          This means that they will provide ',em('exactly'),' the same information to the linear model, which makes one of them useless.
+                                                          In this case, since neither has much of a linear relationship with rejection rate to speak of anyways, they are both useless.'),
+                                                     style = "text-align:justify;color:black;font-size:24px;background-color:papayawhip;padding:15px;border-radius:10px"),
+                                              
+                                                     )
+                                              
+                                            
+                                            
+                                            )
+                                            ),
+                                   ))
