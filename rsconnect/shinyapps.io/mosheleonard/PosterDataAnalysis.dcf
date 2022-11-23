@@ -1,0 +1,13 @@
+name: PosterDataAnalysis
+title: PosterDataAnalysis
+username:
+account: mosheleonard
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7665963
+bundleId: 6540723
+url: https://mosheleonard.shinyapps.io/PosterDataAnalysis/
+when: 1669067725.43405
+lastSyncTime: 1669067725.43406
+asMultiple: FALSE
+asStatic: FALSE
