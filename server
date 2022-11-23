@@ -1,0 +1,181 @@
+
+server <- shinyServer(function(input, output) {
+library(dplyr)
+  dados <-read.csv("clean_data_2.csv",dec = ",")
+
+    
+    output$RawData <- DT::renderDataTable(
+      DT::datatable({
+        dados
+      },
+      options = list(lengthMenu=list(c(5,15,20),c('5','15','20')),pageLength=11,
+                     initComplete = JS(
+                       "function(settings, json) {",
+                       "$(this.api().table().header()).css({'background-color': 'moccasin', 'color': '1c1b1b'});",
+                       "}"),
+                     columnDefs=list(list(className='dt-center',targets="_all"))
+      ),
+      filter = "top",
+      selection = 'multiple',
+      style = 'bootstrap',
+      class = 'cell-border stripe',
+      rownames = FALSE,
+      #colnames = c("UnitID","Institution Name","Average amount of federal  state  local or institutional grant aid awarded (SFA1920_RV)","Average net price-students awarded grant or scholarship aid  2018-19 (SFA1920_RV)","Undergraduate 12-month unduplicated headcount (DRVEF122020_RV)","Total price for out-of-state students living on campus 2019-20 (DRVIC2019)","Total price for in-state students living on campus 2019-20 (DRVIC2019)","Admissions yield - total (DRVADM2019_RV)","Percent admitted - total (DRVADM2019_RV)","Undergraduate enrollment (DRVEF2019_RV)","Full-time enrollment (DRVEF2019_RV)","Enrolled total (ADM2019_RV)","Admissions total (ADM2019_RV)","On campus  room and board 2017-18 (IC2019_AY)","Student-to-faculty ratio (EF2019D_RV)")
+      colnames = c("Institution.Name","On.campus..room.and.board.2017.18..IC2019_AY." ,
+                   "Student.to.faculty.ratio..EF2019D_RV."   ,
+                   "Percent.admitted...total..DRVADM2019_RV."  ,
+                   "Total.price.for.in.state.students.living.on.campus.2019.20..DRVIC2019."   ,
+                   "Total.price.for.out.of.state.students.living.on.campus.2019.20..DRVIC2019.",
+                   "Average.net.price.students.awarded.grant.or.scholarship.aid..2018.19..SFA1920_RV."     ,
+                   "Admissions.total..ADM2019_RV.",
+                   "RejectionRate")
+      ))
+    model0 <- reactive({
+      formula_list <- input$fullylinear
+      f0 <- as.formula(RejectionRate ~ On.campus..room.and.board.2017.18..IC2019_AY.)
+      rg1 <- lm(formula = f0,data = dados,)
+      rg1
+    })
+    model1 <- reactive({
+      formula_list <- input$fullylinear
+      f0 <- as.formula(RejectionRate ~ On.campus..room.and.board.2017.18..IC2019_AY.)
+      rg1 <- lm(formula = f0,data = dados)
+      #print(summary(rg1))
+      if("Student.to.faculty.ratio..EF2019D_RV." %in% formula_list){f0 <- update.formula(old = f0,new = ~.+Student.to.faculty.ratio..EF2019D_RV.)}
+      if("Percent.admitted...total..DRVADM2019_RV." %in% formula_list){f0 <- update.formula(old = f0,new = ~.+Percent.admitted...total..DRVADM2019_RV.)}
+      if("Total.price.for.in.state.students.living.on.campus.2019.20..DRVIC2019." %in% formula_list){f0 <- update.formula(old = f0,new = ~.+Total.price.for.in.state.students.living.on.campus.2019.20..DRVIC2019.)}
+      if("Total.price.for.out.of.state.students.living.on.campus.2019.20..DRVIC2019." %in% formula_list){f0 <- update.formula(old = f0,new = ~.+Total.price.for.out.of.state.students.living.on.campus.2019.20..DRVIC2019.)}
+      if("Average.net.price.students.awarded.grant.or.scholarship.aid..2018.19..SFA1920_RV." %in% formula_list){f0 <- update.formula(old = f0,new = ~.+Average.net.price.students.awarded.grant.or.scholarship.aid..2018.19..SFA1920_RV.)}
+      if("Admissions.total..ADM2019_RV." %in% formula_list){f0 <- update.formula(old = f0,new = ~.+Admissions.total..ADM2019_RV.)}
+      rg2 <- lm(formula = f0,data = dados)
+      rg2
+    })
+    output$reg1 <- renderPlot({
+      #attach(dados)#
+      
+      JUST_ROOM_AND_BOARD <- formula("`RejectionRate`~`On.campus..room.and.board.2017.18..IC2019_AY.`") 
+      #JUST_ROOM_AND_BOARD <- update.formula(JUST_ROOM_AND_BOARD,.~.+)
+      JUST_ROOM_AND_BOARD <- formula(RejectionRate~poly(On.campus..room.and.board.2017.18..IC2019_AY.,68,raw = TRUE))
+      JUST_ROOM_AND_BOARD <- update.formula(JUST_ROOM_AND_BOARD,.~.+poly(Admissions.total..ADM2019_RV.,68,raw=TRUE))
+      JUST_ROOM_AND_BOARD <- update.formula(JUST_ROOM_AND_BOARD,.~.+poly(Percent.admitted...total..DRVADM2019_RV.,68,raw=TRUE))
+      r1 <- lm(JUST_ROOM_AND_BOARD,data = dados)                    
+      
+      plot(dados$RejectionRate,col="red")
+      lines(r1$fitted.values)
+      #lineplot(r1$fitted.values)
+    })
+    output$RejectionRateHist <- renderPlot({
+      attach(dados)
+      ggplot(dados,aes(RejectionRate ),fill=cut)+
+        geom_freqpoly(aes(y=..count../sum(..count..)),binwidth=1,colour = "green") +
+        stat_function(
+          fun = dnorm,
+          args = with(dados, c(mean = mean(RejectionRate), sd = sd(RejectionRate)))
+        ) + scale_x_continuous() + 
+        labs(title="Frequency Polygon Representation of Response Variable",subtitle = "Do these data look normally distributed? Do they follow the idealized normal distribution(shown in black)?")+ 
+        xlab(label ="Rejection Rate (percent)")+ 
+        ylab("Frequency") + 
+        theme(text = element_text(size = 20),panel.background = element_rect(fill = "white"))
+    })
+    output$qqplot1 <- renderPlot({
+      attach(dados)
+      stats::qqnorm(dados$RejectionRate)
+      stats::qqline(dados$RejectionRate)
+      
+    })
+    output$shapirotest <- renderPrint({
+      
+      shapiro.test(dados$RejectionRate)
+      
+    })
+    output$kstest <- renderPrint({
+      
+      ks.test(dados$RejectionRate,pnorm)
+      
+    })
+    url <- a("NCES Data", href="https://nces.ed.gov/ipeds/use-the-data")
+    output$linktodata <- renderUI({
+      tagList("Our Data Source:", url)
+    })
+    output$reglinear <- renderPrint({
+      
+      attach(dados)
+      #plot(dados$RejectionRate)
+      input$fullylinear
+      
+    })
+    output$multimodelsummary <- renderPrint(width = "10000",{
+      summary(model1())
+    })
+    output$ms <- renderPrint({
+      stargazer(model1(),type = 'html',ci = TRUE)
+    })
+    output$effectsplot <- renderPlot(({
+      effects <- allEffects(model1()) 
+      plot(effects,
+            col = 3,
+           ylab = "Probability",
+           ylim = c(0,100),
+           type  = "response")
+    }))
+    output$multireg <- renderPlot({
+      ggplot(data = dados,mapping = aes(x = On.campus..room.and.board.2017.18..IC2019_AY.,y= RejectionRate))+
+        geom_point()+
+        geom_line(aes(x=On.campus..room.and.board.2017.18..IC2019_AY.,y = model0()$fitted.values))+
+        geom_line(aes(x = On.campus..room.and.board.2017.18..IC2019_AY.,y = model1()$fitted.values),color = "blue")+
+        theme(text = element_text(size = 20))
+    })
+    output$pcor1 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$On.campus..room.and.board.2017.18..IC2019_AY.,method = 'pearson')
+      q <- paste("Room and Board costs and Rejection Rate : ",p)
+      q
+    })
+    
+    output$pcor2 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$Student.to.faculty.ratio..EF2019D_RV.,method = 'pearson')
+      q <- paste("Student to Faculty Ratio and Rejection Rate : ",p)
+      q
+    })
+    
+    output$pcor3 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$Percent.admitted...total..DRVADM2019_RV.,method = 'pearson')
+      q <- paste("Percent Admitted and Rejection Rate : ",p)
+      q
+    })
+    
+    output$pcor4 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$Total.price.for.in.state.students.living.on.campus.2019.20..DRVIC2019.,method = 'pearson')
+      q <- paste("In-State Total Price and Rejection Rate : ",p)
+      q
+    })
+    
+    output$pcor5 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$Total.price.for.out.of.state.students.living.on.campus.2019.20..DRVIC2019.,method = 'pearson')
+      q <- paste("Out-of-State Total Price and Rejection Rate : ",p)
+      q
+    })
+    
+    output$pcor6 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$Average.net.price.students.awarded.grant.or.scholarship.aid..2018.19..SFA1920_RV.,method = 'pearson')
+      q <- paste("Average Net Price with Financial Aid and Rejection Rate : ",p)
+      q
+    })
+    
+    output$pcor7 <- renderPrint({
+      
+      p <- cor(dados$RejectionRate,dados$Admissions.total..ADM2019_RV.,method = 'pearson')
+      q <- paste("Total Number of Admitted Students and Rejection Rate : ",p)
+      q
+    })
+})
+
+
+
+# Run the application 
+shinyApp(ui = ui, server = server)
